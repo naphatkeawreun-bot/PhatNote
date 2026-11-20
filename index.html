@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#3b6fd4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PhatNote">
+<title>PhatNote</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--text:#1d1d1b;--muted:#77756e;--line:#e4e2db;--accent:#3b6fd4;--danger:#d44a3b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#222221;--text:#f0efea;--muted:#9a988f;--line:#333331;--accent:#7aa2f0;--danger:#f07a6b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--card:#222221;--text:#f0efea;--muted:#9a988f;--line:#333331;--accent:#7aa2f0;--danger:#f07a6b;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "Noto Sans Thai",system-ui,-apple-system,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:8px 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.tab{flex:none;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:6px 14px;font:inherit;cursor:pointer}
+.tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+input,select,textarea,button{font:inherit;color:var(--text)}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);margin-bottom:8px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;width:100%}
+.ghost{background:none;border:0;color:var(--muted);cursor:pointer;padding:4px 8px}
+.task{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.task:first-child{border-top:0}
+.task input[type=checkbox]{width:22px;height:22px;margin:2px 0 0;flex:none}
+.task .t{flex:1;min-width:0;overflow-wrap:anywhere}
+.done .t b{text-decoration:line-through;color:var(--muted)}
+.meta{font-size:.82rem;color:var(--muted)}
+.late{color:var(--danger)}
+.stat{font-size:.9rem;color:var(--muted);margin:0 0 10px}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin-bottom:12px}
+.bar i{display:block;height:100%;background:var(--accent)}
+details summary{cursor:pointer;font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:20px 0}
+.hd{display:flex;align-items:center;gap:12px;margin:8px 0 12px}.hd h1{margin:0}.av{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--line)}
+</style>
+</head>
+<body>
+<main>
+<div class="hd"><img class="av" src="icon-192.png" alt="รูปโปรไฟล์"><h1>PhatNote</h1></div>
+<div class="tabs" id="tabs"></div>
+<div class="card">
+  <details id="addbox" open>
+    <summary>+ เพิ่มงานใหม่</summary>
+    <div style="margin-top:10px">
+      <input id="title" placeholder="ชื่องาน เช่น รายงานบทที่ 3">
+      <div class="row"><select id="subj"></select><input id="due" type="date"></div>
+      <button class="btn" id="addTask">เพิ่มงาน</button>
+    </div>
+  </details>
+</div>
+<div class="card" id="list"></div>
+<div class="card">
+  <details>
+    <summary>จัดการวิชา</summary>
+    <div style="margin-top:10px">
+      <div class="row"><input id="sname" placeholder="ชื่อวิชา"><input id="scolor" type="color" value="#3b6fd4" style="max-width:60px;padding:2px"></div>
+      <button class="btn" id="addSubj">เพิ่มวิชา</button>
+      <div id="slist" style="margin-top:8px"></div>
+    </div>
+  </details>
+</div>
+</main>
+<script>
+var KEY="subject-tasks-v1";
+var S={subjects:[{id:"s1",name:"คณิตศาสตร์",color:"#3b6fd4"},{id:"s2",name:"ภาษาอังกฤษ",color:"#d4813b"},{id:"s3",name:"วิทยาศาสตร์",color:"#3bb37a"}],tasks:[]};
+var cur="all";
+try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.subjects&&p.tasks)S=p}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function sub(id){return S.subjects.filter(function(x){return x.id===id})[0]}
+function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fmt(d){var a=d.split("-");return a[2]+"/"+a[1]+"/"+(+a[0]+543)}
+function render(){
+  var t='<button class="tab'+(cur==="all"?" on":"")+'" data-s="all">ทั้งหมด</button>';
+  S.subjects.forEach(function(s){t+='<button class="tab'+(cur===s.id?" on":"")+'" data-s="'+s.id+'"><span class="dot" style="background:'+esc(s.color)+'"></span>'+esc(s.name)+'</button>'});
+  $("tabs").innerHTML=t;
+  $("subj").innerHTML=S.subjects.map(function(s){return'<option value="'+s.id+'"'+(cur===s.id?" selected":"")+'>'+esc(s.name)+'</option>'}).join("");
+  var ts=S.tasks.filter(function(x){return cur==="all"||x.subject===cur});
+  ts.sort(function(a,b){return (a.done-b.done)||((a.due||"9")>(b.due||"9")?1:-1)});
+  var dn=ts.filter(function(x){return x.done}).length,pc=ts.length?Math.round(dn/ts.length*100):0;
+  var h='<p class="stat">เสร็จแล้ว '+dn+' / '+ts.length+' งาน</p><div class="bar"><i style="width:'+pc+'%"></i></div>';
+  if(!ts.length)h+='<div class="empty">ยังไม่มีงาน</div>';
+  ts.forEach(function(x){
+    var s=sub(x.subject)||{name:"?",color:"#999"},late=!x.done&&x.due&&x.due<today();
+    h+='<div class="task'+(x.done?" done":"")+'"><input type="checkbox" data-c="'+x.id+'"'+(x.done?" checked":"")+'><div class="t"><b>'+esc(x.title)+'</b><div class="meta"><span class="dot" style="background:'+esc(s.color)+'"></span>'+esc(s.name)+(x.due?' · <span class="'+(late?"late":"")+'">ส่ง '+fmt(x.due)+(late?" (เลยกำหนด)":"")+'</span>':"")+'</div></div><button class="ghost" data-d="'+x.id+'" aria-label="ลบ">✕</button></div>';
+  });
+  $("list").innerHTML=h;
+  $("slist").innerHTML=S.subjects.map(function(s){return'<div class="task"><div class="t"><span class="dot" style="background:'+esc(s.color)+'"></span>'+esc(s.name)+'</div><button class="ghost" data-ds="'+s.id+'">ลบ</button></div>'}).join("");
+}
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-s],[data-d],[data-ds]");if(!el)return;
+  if(el.dataset.s){cur=el.dataset.s}
+  else if(el.dataset.d){S.tasks=S.tasks.filter(function(x){return x.id!==el.dataset.d});save()}
+  else if(el.dataset.ds){if(!confirm("ลบวิชานี้และงานทั้งหมดในวิชา?"))return;var id=el.dataset.ds;S.subjects=S.subjects.filter(function(x){return x.id!==id});S.tasks=S.tasks.filter(function(x){return x.subject!==id});if(cur===id)cur="all";save()}
+  render();
+});
+document.addEventListener("change",function(e){
+  var c=e.target.dataset.c;if(!c)return;
+  S.tasks.forEach(function(x){if(x.id===c)x.done=e.target.checked});save();render();
+});
+$("addTask").onclick=function(){
+  var t=$("title").value.trim();if(!t||!$("subj").value)return;
+  S.tasks.push({id:uid(),subject:$("subj").value,title:t,due:$("due").value,done:false});
+  $("title").value="";$("due").value="";save();render();
+};
+$("addSubj").onclick=function(){
+  var n=$("sname").value.trim();if(!n)return;
+  S.subjects.push({id:uid(),name:n,color:$("scolor").value});$("sname").value="";save();render();
+};
+render();
+if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0){try{navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}}
+</script>
+</body>
+</html>
